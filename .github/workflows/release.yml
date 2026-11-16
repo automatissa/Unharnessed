@@ -126,8 +126,10 @@ jobs:
           path: dist
       - name: Serve the archive
         run: |
-          python3 -m http.server 8765 --directory dist > /dev/null 2>&1 &
-          sleep 2
+          python3 -m http.server 8765 --bind 127.0.0.1 --directory dist > /dev/null 2>&1 &
+          for i in $(seq 1 30); do curl -fsS -o /dev/null http://127.0.0.1:8765/ && exit 0; sleep 1; done
+          echo "the local server did not start" >&2
+          exit 1
       - name: Install (piped into sh, the documented way)
         env:
           UNHARNESSED_DOWNLOAD_URL: http://127.0.0.1:8765
@@ -139,6 +141,7 @@ jobs:
       - name: The command runs
         run: |
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          command -v uv || test -x "$HOME/.local/bin/uv"
           "$HOME/.local/bin/unharnessed" --version
           "$HOME/.local/bin/unharnessed" --help | grep -q 'login'
           test -f "$HOME/.unharnessed/app/unharnessed-runtime/pyproject.toml"
@@ -178,8 +181,12 @@ jobs:
       - name: Serve the archive
         shell: pwsh
         run: |
-          Start-Process python -ArgumentList '-m','http.server','8765','--directory','dist' -WindowStyle Hidden
-          Start-Sleep -Seconds 3
+          Start-Process python -ArgumentList '-m','http.server','8765','--bind','127.0.0.1','--directory','dist' -WindowStyle Hidden
+          foreach ($i in 1..30) {
+            try { Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8765/ | Out-Null; exit 0 } catch { Start-Sleep -Seconds 1 }
+          }
+          throw 'the local server did not start'
+
       - name: Install with Windows PowerShell 5.1 (irm | iex, the documented way)
         shell: powershell
         env:

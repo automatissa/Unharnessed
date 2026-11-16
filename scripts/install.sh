@@ -21,6 +21,8 @@
 set -eu
 
 REPO="automatissa/unharnessed"
+# PATH as the person's shell has it, before anything below looks elsewhere.
+ORIGINAL_PATH="$PATH"
 APP_DIR="${UNHARNESSED_INSTALL_DIR:-$HOME/.unharnessed/app}"
 BIN_DIR="${UNHARNESSED_BIN_DIR:-$HOME/.local/bin}"
 
@@ -74,7 +76,7 @@ detect_platform() {
 
 # The folder on PATH: say so, or add it to the shell's startup file.
 ensure_on_path() {
-    case ":$PATH:" in
+    case ":$ORIGINAL_PATH:" in
         *":$BIN_DIR:"*) return 0 ;;
     esac
     if [ "${UNHARNESSED_NO_MODIFY_PATH:-}" = 1 ]; then
@@ -161,21 +163,24 @@ main() {
 
     # uv builds the Python kernel; the uv installer puts it in ~/.local/bin.
     uv_path="$HOME/.local/bin:${XDG_BIN_HOME:+$XDG_BIN_HOME:}$HOME/.cargo/bin:$PATH"
-    if ! PATH="$uv_path" has uv; then
+    # In a subshell: a PATH set for a function call can outlive it in some sh.
+    uv_found() { (PATH="$uv_path" && command -v uv >/dev/null 2>&1); }
+    if ! uv_found; then
         if [ "${UNHARNESSED_NO_UV:-}" = 1 ]; then
             say "uv is missing: install it (https://docs.astral.sh/uv/) before the first run."
         else
             say "Installing uv (it builds the Python kernel)..."
-            if has curl; then
-                curl -LsSf https://astral.sh/uv/install.sh | sh -s -- --quiet </dev/null ||
-                    say "Warning: uv did not install; install it from https://docs.astral.sh/uv/."
-            else
-                wget -qO- https://astral.sh/uv/install.sh | sh -s -- --quiet </dev/null ||
-                    say "Warning: uv did not install; install it from https://docs.astral.sh/uv/."
+            # Saved first, then run: its own stdin stays free and a failed
+            # download is seen.
+            if download https://astral.sh/uv/install.sh "$tmp/uv-install.sh"; then
+                sh "$tmp/uv-install.sh" --quiet </dev/null || true
             fi
         fi
     fi
-    if PATH="$uv_path" has uv; then
+    if ! uv_found; then
+        say "Warning: uv is not installed, and the Python kernel needs it. Install it from"
+        say "https://docs.astral.sh/uv/ then run: unharnessed --unharnessed-bootstrap"
+    else
         say "Preparing the Python kernel (first time only, about a minute)..."
         if ! PATH="$uv_path" "$APP_DIR/unharnessed" --unharnessed-bootstrap </dev/null >"$tmp/bootstrap.log" 2>&1; then
             tail -n 20 "$tmp/bootstrap.log" >&2 || true
