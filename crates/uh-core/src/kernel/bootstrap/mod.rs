@@ -94,11 +94,30 @@ pub struct EnsureKernelPythonOptions {
 
 impl EnsureKernelPythonOptions {
     pub(crate) fn report(&self, message: &str) {
-        match &self.on_progress {
-            Some(handler) => handler(message),
-            None => eprintln!("{message}"),
+        match (&self.on_progress, quiet_progress()) {
+            (Some(handler), _) | (None, Some(handler)) => handler(message),
+            (None, None) => eprintln!("{message}"),
         }
     }
+}
+
+/// The process-wide home of the setup's output once a surface owns the
+/// terminal (`set_quiet_progress`).
+static QUIET_PROGRESS: std::sync::OnceLock<KernelBootstrapProgressHandler> =
+    std::sync::OnceLock::new();
+
+/// Keep the kernel setup off a terminal that a surface draws on (the
+/// interactive chat): its progress lines go to `handler` instead of stderr,
+/// and the output of its `uv` commands is captured instead of inherited
+/// (a failure's error carries the end of it). Set once per process; later
+/// calls change nothing.
+pub fn set_quiet_progress(handler: KernelBootstrapProgressHandler) {
+    let _ = QUIET_PROGRESS.set(handler);
+}
+
+/// The handler [`set_quiet_progress`] installed, if any.
+pub(crate) fn quiet_progress() -> Option<&'static KernelBootstrapProgressHandler> {
+    QUIET_PROGRESS.get()
 }
 
 fn format_bootstrap_failure(error: &anyhow::Error) -> anyhow::Error {

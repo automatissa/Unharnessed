@@ -42,6 +42,20 @@ impl CommandSpec {
 pub const COMMAND_SPECS: &[CommandSpec] = &[
     CommandSpec::new(&["help"], "help [command]", "Show command help"),
     CommandSpec::new(
+        &["login"],
+        "login [provider]",
+        "Sign in to a model provider (browser sign-in or API key)",
+    )
+    .description(
+        "Without a provider, lists the subscriptions and API-key providers to pick from. \
+The credential is saved in ~/.unharnessed/auth.json.",
+    ),
+    CommandSpec::new(
+        &["logout"],
+        "logout [provider]",
+        "Remove a stored provider credential",
+    ),
+    CommandSpec::new(
         &["mcp"],
         "mcp <add|list|get|remove>",
         "Manage user MCP servers",

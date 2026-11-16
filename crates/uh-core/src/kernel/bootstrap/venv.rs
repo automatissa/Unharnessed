@@ -83,17 +83,39 @@ async fn run_async(command: &str, args: &[String]) -> anyhow::Result<()> {
         child.args(&args).stdin(Stdio::null());
         // Hidden window on Windows (TS `spawnHidden`).
         crate::platform::process::set_no_window(&mut child);
-        let status = child
-            .status()
-            .with_context(|| format!("failed to spawn {command}"))?;
+        // A surface that owns the terminal keeps the output for the error.
+        let quiet = super::quiet_progress().is_some();
+        let (status, captured) = if quiet {
+            let output = child
+                .output()
+                .with_context(|| format!("failed to spawn {command}"))?;
+            let text = format!(
+                "{}{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            (output.status, text)
+        } else {
+            let status = child
+                .status()
+                .with_context(|| format!("failed to spawn {command}"))?;
+            (status, String::new())
+        };
         if status.success() {
             Ok(())
         } else {
+            let lines: Vec<&str> = captured.lines().collect();
+            let tail = lines[lines.len().saturating_sub(30)..].join("\n");
             Err(anyhow!(
-                "{} {} failed with exit code {}",
+                "{} {} failed with exit code {}{}",
                 command,
                 args.join(" "),
-                status.code().unwrap_or(-1)
+                status.code().unwrap_or(-1),
+                if tail.is_empty() {
+                    String::new()
+                } else {
+                    format!(":\n{tail}")
+                }
             ))
         }
     })

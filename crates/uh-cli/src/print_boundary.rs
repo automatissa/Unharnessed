@@ -94,6 +94,9 @@ pub(crate) struct TurnBoundary {
     sink: EventSink,
     /// The provider retry of a failed turn (`None`: the turn settles as is).
     retry: Option<PrintRetry>,
+    /// Set when the user stops the turn (the interactive chat's Ctrl+C):
+    /// the provider retry gives up instead of re-issuing the turn.
+    cancel: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
 }
 
 impl TurnBoundary {
@@ -103,7 +106,18 @@ impl TurnBoundary {
             json_mode,
             sink: std::sync::Arc::new(|event| println!("{event}")),
             retry: None,
+            cancel: None,
         }
+    }
+
+    /// Stop the provider retry once `cancel` is set (the interactive chat
+    /// sets it on Ctrl+C; `-p` has nobody to press it).
+    pub(crate) fn with_cancel(
+        mut self,
+        cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    ) -> Self {
+        self.cancel = Some(cancel);
+        self
     }
 
     /// Re-issue failed turns under the provider retry/failover policy.
@@ -121,6 +135,7 @@ impl TurnBoundary {
             json_mode,
             sink,
             retry: None,
+            cancel: None,
         }
     }
 
@@ -232,13 +247,19 @@ impl TurnBoundary {
             failover: retry.failover,
             max_park: Some(retry.max_park),
         };
+        let cancel = self.cancel.clone();
+        let cancelled = move || {
+            cancel
+                .as_ref()
+                .is_some_and(|flag| flag.load(std::sync::atomic::Ordering::Relaxed))
+        };
         let mut emit = |event: &uh_core::session_engine::auto_retry::AutoRetryEvent| {
             if self.json_mode {
                 (self.sink)(&auto_retry_event_json(event));
             }
         };
         engine
-            .retry_failed_turn(&host, failed, &|| false, &mut emit)
+            .retry_failed_turn(&host, failed, &cancelled, &mut emit)
             .await
             .map_err(|error| format!("{error:#}"))?;
         Ok(())
