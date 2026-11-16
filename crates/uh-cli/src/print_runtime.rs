@@ -46,14 +46,15 @@ impl crate::mode::Runtime for PrintRuntime {
                     Ok(1)
                 }
             },
-            // This build has no terminal UI: a terminal launch without
-            // `-p`/`--mode` points at the headless modes instead.
-            AppMode::Interactive => {
-                eprintln!(
-                    "Error: this build has no interactive terminal UI; use -p/--print, --mode json, or --mode acp"
-                );
-                Ok(1)
-            }
+            // A terminal launch without `-p`/`--mode`: the chat in the
+            // terminal, over the same engine and boundaries as `-p`.
+            AppMode::Interactive => match crate::interactive::run(options) {
+                Ok(code) => Ok(code),
+                Err(message) => {
+                    eprintln!("Error: {message}");
+                    Ok(1)
+                }
+            },
             // ACP mode: a thin JSON-RPC stdio transport over the same
             // in-process session engine the print mode uses.
             AppMode::Acp => match run_acp_mode(options) {
@@ -159,15 +160,15 @@ pub type ProviderTargetSlot = std::sync::Arc<std::sync::RwLock<Option<ProviderTa
 /// The assembled headless engine plus the model and request auth it runs
 /// on, so host transports can drive session-command executors
 /// (compact) with the session's own model.
-struct HeadlessEngine {
-    engine: uh_core::session_engine::engine::SessionEngine,
-    model: Model,
-    api_key: Option<String>,
+pub(crate) struct HeadlessEngine {
+    pub(crate) engine: uh_core::session_engine::engine::SessionEngine,
+    pub(crate) model: Model,
+    pub(crate) api_key: Option<String>,
     /// The live provider target: the stream reads it per call, and the
     /// ACP mode's picker switches swap it (TS `setModel`'s stream
     /// re-registration; `set_model` swaps it without rebuilding the
     /// session).
-    provider_target: ProviderTargetSlot,
+    pub(crate) provider_target: ProviderTargetSlot,
 }
 
 async fn build_headless_engine_parts(options: &RunOptions) -> Result<HeadlessEngine, String> {
@@ -582,7 +583,7 @@ fn headless_image_model_router(
 }
 
 /// The engine alone (callers that do not drive session commands).
-async fn build_headless_engine(options: &RunOptions) -> Result<HeadlessEngine, String> {
+pub(crate) async fn build_headless_engine(options: &RunOptions) -> Result<HeadlessEngine, String> {
     build_headless_engine_parts(options).await
 }
 
@@ -943,7 +944,7 @@ const DEFAULT_BACKGROUND_WAIT_MS: u64 = 10 * 60 * 1000;
 
 /// The boundaries every settled print turn crosses, prompt or wake.
 #[allow(clippy::too_many_arguments)]
-async fn settle_turn(
+pub(crate) async fn settle_turn(
     engine: &uh_core::session_engine::engine::SessionEngine,
     boundary: &mut crate::print_boundary::TurnBoundary,
     goal: &crate::print_goal::PrintGoalSurface,

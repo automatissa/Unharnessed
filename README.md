@@ -35,7 +35,7 @@
 
 Unharnessed is a coding agent harness built on one idea: **the model gets exactly one tool**, `ipython`, a persistent CPython REPL. There is no `read`, no `grep`, no `edit_file`, no `web_fetch`. Reading a file, searching a repository, patching forty call sites, starting a dev server or calling an MCP service: all of it is Python the model writes, in a kernel that stays alive for the whole session.
 
-The harness around it (Rust) does the rest of the job: the agent loop, compaction, goals, provider retry and failover, sessions, the VS Code panel. It ships as a VS Code extension, a headless CLI and an [ACP](https://agentclientprotocol.com) agent.
+The harness around it (Rust) does the rest of the job: the agent loop, compaction, goals, provider retry and failover, sessions, the VS Code panel. It ships as a VS Code extension, a terminal CLI and an [ACP](https://agentclientprotocol.com) agent.
 
 > [!WARNING]
 > Unharnessed never asks before running a command. The model's Python and shell commands run with your user permissions, and the kernel is **not** a sandbox. Use it in a container, a VM or a disposable checkout. [Why there are no permission prompts](#no-permission-prompts).
@@ -373,6 +373,19 @@ Every rule in a system prompt is a decision made for the model, and it sits in t
 
 ### CLI
 
+Run `unharnessed` in a project folder to chat in the terminal. The answer streams as it is written, each `ipython` cell shows its code and the start of its output, Ctrl+C stops the agent, and the session still [wakes](#wake-ups) when a background `bash()` ends. The first run asks you to sign in.
+
+```bash
+unharnessed                                       # chat in the terminal
+unharnessed -c                                    # continue the last chat here
+unharnessed login                                 # sign in: a subscription in the browser, or an API key
+unharnessed logout                                # remove a stored credential
+```
+
+In the chat: `/help`, `/compact [focus]`, `/goal <objective>`, `/autonomous on|off`, `/exit`. End a line with `\` to continue on the next one; a paste of several lines is one message.
+
+For scripts and benchmarks, `-p` answers once and exits:
+
 ```bash
 unharnessed -p "Compute 2**100 in the kernel"     # text output
 unharnessed --mode json -p "..."                  # JSON event stream
@@ -430,6 +443,22 @@ Dependencies go one way, from `uh-types` up to `uh-cli`. Each crate's README sta
 ---
 
 ## Install
+
+**CLI**, one command. On Linux and macOS:
+
+```bash
+curl -fsSL https://github.com/automatissa/unharnessed/releases/latest/download/install.sh | sh
+```
+
+On Windows, in PowerShell:
+
+```powershell
+irm https://github.com/automatissa/unharnessed/releases/latest/download/install.ps1 | iex
+```
+
+The script downloads the build for your system (Linux x64/arm64, macOS Intel/Apple Silicon, Windows x64), checks its SHA-256, installs it in `~/.unharnessed/app`, puts `unharnessed` on your PATH, installs [uv](https://docs.astral.sh/uv/) if it is missing and prepares the Python kernel. No sudo or administrator rights. Run it again to update. Then open a new terminal and run `unharnessed` in a project folder.
+
+To remove it: delete `~/.unharnessed/app` (and `~/.local/bin/unharnessed` on Linux and macOS). `~/.unharnessed` also holds your sessions and credentials.
 
 **VS Code**: install [Unharnessed Agent](https://marketplace.visualstudio.com/items?itemName=Unharnessed.unharnessed-agent) from the Marketplace, open the panel and sign in. The agent binary ships inside the extension. It needs [uv](https://docs.astral.sh/uv/) to build its kernel the first time:
 

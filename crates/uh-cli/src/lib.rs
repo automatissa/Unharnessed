@@ -43,7 +43,9 @@ pub(crate) mod global_flags;
 pub(crate) mod headless_autonomous;
 pub(crate) mod image_load;
 pub(crate) mod initial_message;
+pub(crate) mod interactive;
 pub(crate) mod list_models;
+pub(crate) mod login_command;
 pub(crate) mod mcp_command;
 #[allow(dead_code)]
 pub(crate) mod mcp_login;
@@ -54,6 +56,7 @@ pub(crate) mod provider_login;
 pub(crate) mod public_command;
 pub(crate) mod session_export;
 pub(crate) mod subscription_login;
+pub(crate) mod terminal;
 
 /// The runtime boundary: everything a mode-runner crate implements to plug
 /// into the `unharnessed` binary, plus the entry point that drives it.

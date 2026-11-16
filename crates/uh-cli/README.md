@@ -4,8 +4,9 @@ The `unharnessed` binary and composition root.
 
 ## Scope
 
-- Argument parsing, mode selection and exit codes. Modes: `-p` (print, `text`
-  or `json` via `--mode`) and `--mode acp`. Public commands: `help`,
+- Argument parsing, mode selection and exit codes. Modes: the interactive
+  chat (a terminal launch without `-p`), `-p` (print, `text` or `json` via
+  `--mode`) and `--mode acp`. Public commands: `help`, `login`, `logout`,
   `mcp add|list|get|remove`, `model list`, `session export`, `prompt`. The TUI,
   the daemon modes and their commands (`agents`, `attach`, `status`, `doctor`,
   `shutdown`, `update`, `schedule`, ...) were removed; the old names print
@@ -27,6 +28,17 @@ The `unharnessed` binary and composition root.
   active goal's or the autonomous run's natural continuations inside one agent
   run, with the budget-limit steer and the threshold-held continuation drained
   as follow-up runs. A goal that ends `blocked` ends the run with exit code 0.
+- **Interactive chat** (`interactive.rs`, `terminal.rs`): the same engine
+  and turn boundaries as `-p`, with the terminal as the surface: streamed
+  answers, each cell's code and the start of its output, Ctrl+C stopping the
+  turn (and the provider retry), lines typed during a turn queued, pastes
+  kept as one message, idle wakes run as turns, sign-in on a first run. No
+  terminal crate: lines come from the terminal's own line editing.
+  Verifier: `scripts/unharnessed-cli-e2e.py` (a real pty).
+- **Terminal sign-ins** (`login_command.rs`): `login`/`logout` drive the
+  `provider_login` flows with the terminal as the auth panel (progress lines,
+  the browser opened on the sign-in page, prompts read from stdin, keys typed
+  without echo on Unix).
 - **Session slash commands** (`print_session_command.rs`): prompts that are
   `/compact`, `/goal` or `/autonomous` run through the uh-core session-command
   executor instead of reaching the model.
