@@ -48,7 +48,9 @@ jobs:
         include:
           - { platform: linux-x64, os: ubuntu-24.04, target: x86_64-unknown-linux-musl }
           - { platform: linux-arm64, os: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl }
-          - { platform: darwin-arm64, os: macos-15, target: aarch64-apple-darwin }
+          # Both macOS builds on the Intel pool: Apple's toolchain builds
+          # arm64 from there too, and the arm64 pool is often saturated.
+          - { platform: darwin-arm64, os: macos-15-intel, target: aarch64-apple-darwin }
           - { platform: darwin-x64, os: macos-15-intel, target: x86_64-apple-darwin }
           - { platform: windows-x64, os: windows-latest, target: x86_64-pc-windows-msvc }
     steps:
@@ -101,6 +103,9 @@ jobs:
   install-unix:
     name: install ${{ matrix.platform }}
     needs: build
+    # Each platform tests its own archive, even when another build failed;
+    # the release still needs every job to pass.
+    if: ${{ !cancelled() }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     strategy:
@@ -159,6 +164,7 @@ jobs:
   install-windows:
     name: install windows-x64
     needs: build
+    if: ${{ !cancelled() }}
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
